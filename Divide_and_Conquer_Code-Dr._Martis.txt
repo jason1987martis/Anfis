@@ -1,0 +1,59 @@
+import numpy as np
+
+def read_and_chunk_data(file_path, chunk_size):
+    # Read the data from a text file
+    data = np.genfromtxt(file_path, delimiter=',')  # Update delimiter if different
+    
+    # Calculate the number of chunks
+    num_chunks = len(data) // chunk_size + (len(data) % chunk_size > 0)
+    
+    # Divide the data into chunks and save each chunk to a separate file
+    for i in range(num_chunks):
+        chunk = data[i * chunk_size:(i + 1) * chunk_size]
+        # Save each chunk to a separate file
+        np.savetxt(f'chunk_{i + 1}.csv', chunk, delimiter=',', fmt='%s')  # Update fmt based on your data type
+
+# Example usage
+file_path = 'your_data_file.csv'  # The path to your input file
+chunk_size = 100  # Number of rows per chunk
+read_and_chunk_data(file_path, chunk_size)
+
+-------------------
+
+
+Code for taking the chunk data and training continously:
+
+import numpy as np
+import os
+
+def train_anfis_on_chunks(num_chunks, input_dim):
+    # Placeholder for any initialization needed for ANFIS or similar model
+    # Initialize ANFIS model here (code depends on the specific library used)
+
+    # Loop over each chunk file
+    for i in range(1, num_chunks + 1):
+        file_name = f'chunk_{i}.csv'
+        # Load the data from the chunk file
+        data = np.loadtxt(file_name, delimiter=',')
+        # Assuming the last column is the target and the rest are features
+        inputs = data[:, :-1]
+        targets = data[:, -1]
+
+        # Here, insert the code to train your ANFIS model on the data.
+        # Since the actual ANFIS code is not present, this will be a placeholder comment.
+        # Example:
+        # model.train(inputs, targets, epochs=10)  # Adjust epochs as needed
+
+        # Optionally save the model state after each chunk
+        # model.save(f'model_after_chunk_{i}.pkl')
+
+        print(f'Trained on chunk {i}')
+
+# Define the number of chunks and the input dimensionality of your data
+num_chunks = 5  # Adjust to match the number of chunk files you have
+input_dim = 2  # Adjust based on your specific data structure
+
+# Call the function to start the training process
+train_anfis_on_chunks(num_chunks, input_dim)
+
+---------------------------
