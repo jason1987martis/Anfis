@@ -29,7 +29,7 @@ class RuleStrengths:
 
 
 class GaussianMembershipLayer(nn.Module):
-    """Generalized bell-shaped membership functions with learnable parameters."""
+    """Gaussian membership functions with learnable parameters."""
 
     def __init__(self, input_dim: int, mf_count: int):
         super().__init__()
@@ -39,26 +39,23 @@ class GaussianMembershipLayer(nn.Module):
         self.input_dim = input_dim
         self.mf_count = mf_count
 
-        # Parameters are stored in an unconstrained space; softplus ensures positivity at runtime.
+        # Parameters are stored in an unconstrained space
         self._a = nn.Parameter(torch.ones(input_dim, mf_count))
-        self._b = nn.Parameter(torch.ones(input_dim, mf_count))
         self._c = nn.Parameter(torch.zeros(input_dim, mf_count))
 
     @property
     def a(self) -> Tensor:
+        """Width parameter (standard deviation), always positive."""
         return F.softplus(self._a)
 
     @property
-    def b(self) -> Tensor:
-        return F.softplus(self._b)
-
-    @property
     def c(self) -> Tensor:
+        """Center parameter (mean)."""
         return self._c
 
     def forward(self, x: Tensor) -> Tensor:
         """
-        Evaluate membership degrees.
+        Evaluate membership degrees using Gaussian function.
 
         Args:
             x: Tensor of shape (batch, input_dim)
@@ -70,13 +67,12 @@ class GaussianMembershipLayer(nn.Module):
             raise ValueError(f"Expected input shape (batch, {self.input_dim}), got {tuple(x.shape)}.")
 
         x_expanded = x.unsqueeze(-1)  # (batch, input_dim, 1)
-        a = self.a  # Positive
-        b = self.b  # Positive
-        c = self.c
+        a = self.a  # Width (standard deviation)
+        c = self.c  # Center (mean)
 
-        numerator = (x_expanded - c) / (a + 1e-6)
-        exponent = (numerator.pow(2.0)).pow(b)
-        memberships = 1.0 / (1.0 + exponent)
+        # Simple Gaussian function: exp(-(x-μ)²/(2σ²))
+        squared_diff = (x_expanded - c).pow(2)
+        memberships = torch.exp(-squared_diff / (2 * a.pow(2) + 1e-6))
         return memberships
 
     @torch.no_grad()
@@ -108,7 +104,6 @@ class GaussianMembershipLayer(nn.Module):
 
         self._c.copy_(centers.T)
         self._a.copy_(_softplus_inverse(spreads))
-        self._b.copy_(_softplus_inverse(torch.full_like(spreads, 0.5)))
 
 
 class ANFISNetwork(nn.Module):
@@ -136,6 +131,7 @@ class ANFISNetwork(nn.Module):
         self.consequents = nn.Parameter(torch.zeros(self.num_rules, input_dim + 1))
 
     def forward(self, x: Tensor) -> Tensor:
+        """Forward pass through the network."""
         memberships = self.membership_layer(x)
         strengths = self._rule_strengths(memberships)
 
@@ -150,6 +146,7 @@ class ANFISNetwork(nn.Module):
         return y
 
     def forward_with_details(self, x: Tensor) -> Tuple[Tensor, RuleStrengths, Tensor]:
+        """Forward pass with detailed outputs."""
         memberships = self.membership_layer(x)
         strengths = self._rule_strengths(memberships)
 

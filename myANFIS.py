@@ -241,6 +241,10 @@ def dmf_dp(mynet, i, j):
     else:
         tmp2 = (tmp1**2)**b
     denom = (1 + tmp2) * (1 + tmp2)
+    
+    # Initialize tmp with default value
+    tmp = 0
+    
     if j == 0:
         tmp = (2 * b * tmp2) / (a * denom)
     elif j == 1 and tmp1 == 0:
@@ -418,11 +422,13 @@ def myanfis(data, inputs, epoch_n, mf, step_size, decrease_rate, increase_rate):
         "last_increase_ss": 1,
     }
     
-    num_nodes = len(mynet['nodes'])  # You need to determine this
+    num_nodes = len(mynet['nodes'])
     
     layer_1_to_3_output = np.zeros((num_nodes, ndata))  # Initialize with the correct shape
+    anfis_output = np.zeros((ndata, 1))  # Initialize anfis_output
+    RMSE = np.zeros((epoch_n, 1))  # Initialize RMSE array
+    bestnet = mynet.copy()  # Initialize bestnet with current network
     
-
     for iter in range(0, epoch_n):
         for j in range(ndata):
 
@@ -452,8 +458,8 @@ def myanfis(data, inputs, epoch_n, mf, step_size, decrease_rate, increase_rate):
         ## Use numpy.savetxt to save the array to a CSV file
         # np.savetxt(file_path, layer_1_to_3_output, delimiter=',')
         # exit()
-        anfis_output = np.zeros((ndata, 1))
-        RMSE = np.zeros((epoch_n, 1))  # Initialize RMSE as a NumPy array of zeros
+        # Reset anfis_output for this iteration
+        anfis_output.fill(0)
 
         for j in range(ndata):
             mynet['nodes'] = layer_1_to_3_output[:, j]   
@@ -505,17 +511,16 @@ def myanfis(data, inputs, epoch_n, mf, step_size, decrease_rate, increase_rate):
 
 def plot_Nodes(mynet):
     # Plot the Node Connections
-    plt.figure()
+    fig = plt.figure()
     plt.imshow(mynet['config'], aspect='auto', cmap='cool')
     plt.title('Node Connections')
     plt.show()
+    plt.close(fig)
 
 def plot_mf(mynet, data):
-    plt.figure(figsize=(12, 4))  # Create a single figure for all plots
-    # print(mynet['mparams'])
+    fig = plt.figure(figsize=(12, 4))  # Create a single figure for all plots
     k = 0
     for i in range(0,mynet['ni']*mynet['mf'],mynet['mf']):
-        # print(k)
         plt.subplot(2, 2, k+1)  # Create subplots for each input variable
         plt.title(f'Input {k+1}')
         plt.xlabel('X')
@@ -533,15 +538,17 @@ def plot_mf(mynet, data):
         plt.tight_layout()
         plt.legend()
     plt.show()
+    plt.close(fig)
     
 def plot_predictions(actual_output,anfis_predictions):
-    plt.figure()
+    fig = plt.figure()
     plt.plot(actual_output, 'b*', label='Actual Output')
     plt.plot(anfis_predictions, 'r-', linewidth=0.5, label='ANFIS Prediction')
     plt.xlabel('Data Point')
     plt.ylabel('Output Value')
     plt.legend()
     plt.show()
+    plt.close(fig)
     
 
 def calc_rmse(x,y):
@@ -559,10 +566,9 @@ def calc_r2(x,y):
     return r_squared
     
 def plot_r2(x,y):
-    
     r_squared = r2_score(x, y)
-     # Create a scatter plot for the data points
-    plt.figure(figsize=(8, 6))
+    # Create a scatter plot for the data points
+    fig = plt.figure(figsize=(8, 6))
     plt.scatter(x, y, label=f'R-squared = {r_squared:.4f}')
     plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2)  # Add the identity line
     plt.xlabel('Actual Output')
@@ -570,8 +576,8 @@ def plot_r2(x,y):
     plt.title("Correlation_Coefficient (R2)")
     plt.legend(loc='upper left')
     plt.tight_layout()
-    # Show the plot
-    plt.show
+    plt.show()
+    plt.close(fig)
     
     
     
