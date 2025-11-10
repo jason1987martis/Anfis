@@ -4,7 +4,7 @@ from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 import pickle
 
-data = np.genfromtxt('G:/My Drive/MSEE/Master_Thesis/Diabetes_Prediction/Jupyter Notebooks/ANFIS Implementation/anfis_code/input/binary_no-head_BMI-AGE-Income-PhysHlth_300x5.csv', delimiter=',', skip_header=1)  
+data = np.genfromtxt('input/binary_no-head_BMI-AGE-Income-PhysHlth_200x5.csv', delimiter=',')
 # Divide data into input and output
 inputs = data[:, :-1]  # All columns except the last one are inputs
 output = data[:, -1:]  # The last column is the output
@@ -47,7 +47,7 @@ def load_model(filename):
 #-------------------------
 
 # Load the CSV file into a DataFrame
-#file_path = 'G:/My Drive/MSEE/Master_Thesis/Diabetes_Prediction/Jupyter Notebooks/ANFIS Implementation/anfis_code/input/binary_no-head_BMI-AGE-Income-PhysHlth_300x5.csv'
+#file_path = 'input/binary_no-head_BMI-AGE-Income-PhysHlth_200x5.csv'
 #data = pd.read_csv(file_path, header=None)  # Assuming there is no header in the file
 
 # Splitting the DataFrame into input and output

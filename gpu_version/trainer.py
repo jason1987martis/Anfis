@@ -10,8 +10,8 @@ import torch
 from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
-from .dataset_loader import BRFSSDatasetLoader
-from .model import ANFISNetwork
+from dataset_loader import BRFSSDatasetLoader
+from model import ANFISNetwork
 
 
 @dataclass
