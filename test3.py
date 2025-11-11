@@ -6,8 +6,8 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
-#Load the dataset
-data = np.genfromtxt('G:/My Drive/MSEE/Master_Thesis/Diabetes_Prediction/Datasets/CDC datasets/anfis_encod_train_dataset_150x5_v2.csv', delimiter=',', skip_header=1)  
+# Load the dataset (use provided BRFSS CSV in input/)
+data = np.genfromtxt('input/binary_no-head_BMI-AGE-Income-PhysHlth_200x5.csv', delimiter=',')
 
 # Define the batch size
 batch_size = 50
@@ -99,8 +99,11 @@ print(output)
 # Concatenate the output and anfis predictions
 result = np.concatenate((output, anfis_predictions), axis=1)
 
-# Save the result to a CSV file
-np.savetxt('G:/My Drive/MSEE/Master_Thesis/Diabetes_Prediction/Datasets/CDC datasets/result_150r_10epoc_50batch.csv', result, delimiter=',', header='output,anfis_predictions', comments='')
+# Save the result to a CSV file in the local output/ folder
+import os
+out_path = os.path.join('output', 'result_150r_10epoc_50batch.csv')
+os.makedirs('output', exist_ok=True)
+np.savetxt(out_path, result, delimiter=',', header='output,anfis_predictions', comments='')
 
 #print("Result saved to 'result.csv'")
 

@@ -66,12 +66,15 @@ class BRFSSDatasetLoader:
     Helper that prepares the Diabetes Health Indicators dataset for ANFIS training.
     """
 
-    DEFAULT_TARGET = "Diabetes_binary"
+    # Default column names for BRFSS dataset (BMI, Age, Income, PhysHlth, Target)
+    DEFAULT_COLUMNS = ["BMI", "Age", "Income", "PhysHlth", "Target"]
+    DEFAULT_TARGET = "Target"
 
     def __init__(
         self,
         csv_path: str | Path,
         *,
+        columns: list[str] = DEFAULT_COLUMNS,
         target_column: str = DEFAULT_TARGET,
         feature_subset: Optional[Sequence[str]] = None,
         drop_columns: Optional[Iterable[str]] = None,
@@ -83,6 +86,7 @@ class BRFSSDatasetLoader:
         sample_size: Optional[int] = None,
     ):
         self.csv_path = Path(csv_path)
+        self.columns = columns
         self.target_column = target_column
         self.feature_subset = feature_subset
         self.drop_columns = set(drop_columns or [])
@@ -97,7 +101,8 @@ class BRFSSDatasetLoader:
             raise FileNotFoundError(f"Dataset file not found: {self.csv_path}")
 
     def load(self) -> DatasetSplits:
-        df = pd.read_csv(self.csv_path)
+        # Read CSV without headers and assign our column names
+        df = pd.read_csv(self.csv_path, header=None, names=self.columns)
 
         if self.sample_size is not None and self.sample_size < len(df):
             df = df.sample(self.sample_size, random_state=self.random_state)
@@ -108,7 +113,7 @@ class BRFSSDatasetLoader:
             missing = set(self.feature_subset) - set(df.columns)
             if missing:
                 raise ValueError(f"Missing feature columns in dataset: {missing}")
-            feature_df = df.loc[:, self.feature_subset]
+            feature_df = df[list(self.feature_subset)]
         else:
             feature_df = df.drop(columns=[self.target_column])
 
