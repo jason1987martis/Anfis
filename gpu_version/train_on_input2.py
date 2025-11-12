@@ -1,199 +1,215 @@
-"""Training script for BRFSS diabetes dataset from input2 folder."""
+"""Train ANFIS on the provided BRFSS dataset in input2/ using GPU only.
+
+This script WILL NOT run on CPU. It enforces CUDA availability and raises
+an error if a compatible GPU is not found.
+
+Usage (from repo root):
+    D:/code_space/Anfis/.venv/Scripts/python.exe gpu_version/train_on_input2.py
+
+The dataset expected: input2/diabetes_binary_5050split_health_indicators_BRFSS2015.csv
+with header. The target column is 'Diabetes_binary'.
+"""
+
+from __future__ import annotations
 
 import os
-import torch
+import sys
+from pathlib import Path
+
 import pandas as pd
-import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+import torch
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score
-from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import StandardScaler
 
-from dataset_loader import BRFSSDatasetLoader
 from model import ANFISNetwork
-from trainer import train_anfis
 
 
-def prepare_input2_data(filepath, sample_size=5000, test_size=0.2, val_size=0.1, batch_size=32):
-    """Load and prepare the diabetes dataset from input2."""
-    print(f"Loading dataset from: {filepath}")
-    df = pd.read_csv(filepath)
-    
-    print(f"Original dataset shape: {df.shape}")
-    print(f"Target distribution:\n{df['Diabetes_binary'].value_counts()}\n")
-    
-    # Sample for faster training (keep class balance)
-    if sample_size and sample_size < len(df):
-        print(f"Sampling {sample_size} records to balance classes...")
-        # Stratified sample to maintain class balance
-        df = df.groupby('Diabetes_binary', group_keys=False).apply(
-            lambda x: x.sample(n=min(len(x), sample_size // 2), random_state=42)
-        )
-        print(f"Sampled dataset shape: {df.shape}\n")
-    
-    # Separate features and target
-    X = df.drop('Diabetes_binary', axis=1).values.astype(np.float32)
-    y = df['Diabetes_binary'].values.astype(np.float32)
-    
-    # Scale features to [0, 1]
-    scaler = MinMaxScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    # Convert to tensors
-    X_tensor = torch.FloatTensor(X_scaled)
-    y_tensor = torch.FloatTensor(y).reshape(-1, 1)
-    
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_tensor, y_tensor, test_size=test_size, random_state=42, stratify=y
-    )
-    
-    # Further split training into train and validation
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train, y_train, test_size=val_size, random_state=42, stratify=y_train
-    )
-    
-    # Create data loaders
-    train_dataset = TensorDataset(X_train, y_train)
-    val_dataset = TensorDataset(X_val, y_val)
-    test_dataset = TensorDataset(X_test, y_test)
-    
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-    
-    print(f"Train set: {len(X_train)} | Val set: {len(X_val)} | Test set: {len(X_test)}")
-    print(f"Number of features: {X_scaled.shape[1]}\n")
-    
-    return {
-        'train': train_loader,
-        'val': val_loader,
-        'test': test_loader
-    }, scaler
+def load_dataset(csv_path: str):
+    # Detect file type and load accordingly, then split into X,y using target detection
+    p = str(csv_path)
+    if p.lower().endswith('.csv'):
+        df = pd.read_csv(p)
+    elif p.lower().endswith(('.xls', '.xlsx')):
+        # pandas will require openpyxl (install if needed)
+        df = pd.read_excel(p)
+    else:
+        # fallback to pandas autodetect
+        df = pd.read_csv(p)
+
+    X, y, target_col = detect_target_and_split(df)
+    return X, y, target_col
+
+
+def detect_target_and_split(df: pd.DataFrame):
+    # Try to find a column containing 'diabet' (case-insensitive)
+    cols = list(df.columns)
+    target_col = None
+    for c in cols:
+        if 'diabet' in str(c).lower():
+            target_col = c
+            break
+    if target_col is None:
+        # fallback to common names
+        for name in ['Diabetes_binary', 'diabetes_binary', 'Diabetes binary', 'diabetes']:
+            if name in cols:
+                target_col = name
+                break
+    if target_col is None:
+        raise ValueError(f"Could not detect target column automatically. Dataset columns: {cols}")
+
+    X = df.drop(columns=[target_col]).to_numpy(dtype='float32')
+    y = df[target_col].to_numpy(dtype='float32').reshape(-1, 1)
+    return X, y, target_col
 
 
 def main():
-    # Configuration
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}\n")
-    
-    # Dataset path
-    dataset_path = "d:/code_space/Anfis/input2/diabetes_binary_health_indicators_BRFSS2015.csv"
-    
-    # Load data
-    dataloaders, scaler = prepare_input2_data(
-        dataset_path,
-        sample_size=5000,  # Use 5000 samples for faster training
-        batch_size=64
-    )
-    
-    # Model configuration
-    input_dim = 21  # 22 columns - 1 target = 21 features
-    num_rules = 3   # Start with 3 membership functions per feature
-    
-    model = ANFISNetwork(
-        input_dim=input_dim,
-        mf_count=num_rules,
-    ).to(device)
-    
-    print(f"Model created with {input_dim} inputs and {num_rules} membership functions per input")
-    print(f"Total rules: {num_rules ** input_dim}\n")
-    
-    # Train model
-    print("Starting training...")
-    history = train_anfis(
-        model=model,
-        dataloaders=dataloaders,
-        device=device,
-        epochs=30,
-        optimizer=torch.optim.Adam(model.parameters(), lr=0.001),
-        classification=True
-    )
-    
-    # Print training summary
-    print("\n" + "="*60)
-    print("TRAINING COMPLETED!")
-    print("="*60)
-    print(f"Final training loss: {history.train_loss[-1]:.4f}")
-    print(f"Final validation loss: {history.val_loss[-1]:.4f}")
-    print(f"Final training accuracy: {history.train_accuracy[-1]:.2%}")
-    print(f"Final validation accuracy: {history.val_accuracy[-1]:.2%}\n")
-    
-    # Save model
-    out_dir = os.path.join(os.path.dirname(__file__), "..", "output")
-    os.makedirs(out_dir, exist_ok=True)
-    model_path = os.path.abspath(os.path.join(out_dir, "trained_anfis_input2.pth"))
-    torch.save(model.state_dict(), model_path)
-    print(f"Model saved to: {model_path}\n")
-    
-    # Evaluate on test set
-    if "test" in dataloaders:
-        print("="*60)
-        print("TEST SET EVALUATION")
-        print("="*60)
-        
+    repo_root = Path(__file__).resolve().parents[1]
+    input2 = repo_root / 'input2'
+    csv_path = input2 / 'diabetes_binary_5050split_health_indicators_BRFSS2015.csv'
+    xlsx_path = input2 / 'diabetes_binary_5050split_health_indicators_BRFSS2015.xlsx'
+
+    if csv_path.exists():
+        dataset_path = csv_path
+    elif xlsx_path.exists():
+        dataset_path = xlsx_path
+    else:
+        # try to find any file that looks like the diabetes file
+        candidates = list(input2.glob('diabetes_binary*'))
+        if candidates:
+            dataset_path = candidates[0]
+        else:
+            print(f"Dataset not found in: {input2}")
+            sys.exit(1)
+
+    # Enforce GPU-only execution
+    if not torch.cuda.is_available():
+        raise RuntimeError('CUDA is not available on this machine. This script requires a GPU.')
+
+    device = torch.device('cuda')
+    print(f"Using device: {device}")
+
+    # load CSV or XLSX
+    if str(dataset_path).lower().endswith('.csv'):
+        X, y, _ = load_dataset(str(dataset_path))
+    else:
+        # read excel
+        df = pd.read_excel(dataset_path)
+        if 'Diabetes_binary' not in df.columns:
+            raise ValueError("Expected 'Diabetes_binary' column in dataset header.")
+        X = df.drop(columns=['Diabetes_binary']).to_numpy(dtype='float32')
+        y = df['Diabetes_binary'].to_numpy(dtype='float32').reshape(-1, 1)
+
+    # Simple scaling
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Train/val/test split (70/15/15)
+    X_train, X_tmp, y_train, y_tmp = train_test_split(X_scaled, y, test_size=0.30, random_state=42, stratify=y)
+    X_val, X_test, y_val, y_test = train_test_split(X_tmp, y_tmp, test_size=0.50, random_state=42, stratify=y_tmp)
+
+    # Convert to tensors and move to device
+    X_train_t = torch.from_numpy(X_train).float().to(device)
+    y_train_t = torch.from_numpy(y_train).float().to(device)
+    X_val_t = torch.from_numpy(X_val).float().to(device)
+    y_val_t = torch.from_numpy(y_val).float().to(device)
+    X_test_t = torch.from_numpy(X_test).float().to(device)
+    y_test_t = torch.from_numpy(y_test).float().to(device)
+
+    # Create simple dataloaders using TensorDataset
+    from torch.utils.data import TensorDataset, DataLoader
+
+    batch_size = 256
+    train_ds = TensorDataset(X_train_t, y_train_t)
+    val_ds = TensorDataset(X_val_t, y_val_t)
+    test_ds = TensorDataset(X_test_t, y_test_t)
+
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=batch_size)
+    test_loader = DataLoader(test_ds, batch_size=batch_size)
+
+    input_dim = X.shape[1]
+    print(f"Dataset: {dataset_path} | samples: {len(X)} | features: {input_dim}")
+
+    # Instantiate ANFIS model with a sampled rule set to avoid combinatorial explosion
+    mf_count = 3
+    num_rules = 512  # sampled number of rules to keep memory manageable
+    rule_indices = torch.randint(low=0, high=mf_count, size=(num_rules, input_dim))
+    model = ANFISNetwork(input_dim=input_dim, mf_count=mf_count, rule_indices=rule_indices).to(device)
+    print(f"Using {num_rules} sampled rules (mf_count={mf_count}, input_dim={input_dim})")
+
+    # Use BCEWithLogitsLoss for binary classification
+    loss_fn = torch.nn.BCEWithLogitsLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    epochs = 20
+    best_val = float('inf')
+    best_state = None
+
+    for epoch in range(1, epochs + 1):
+        model.train()
+        total_loss = 0.0
+        for xb, yb in train_loader:
+            optimizer.zero_grad()
+            out = model(xb)
+            loss = loss_fn(out, yb)
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item() * xb.size(0)
+
+        train_loss = total_loss / len(train_loader.dataset)
+
+        # Validation
         model.eval()
-        y_true = []
-        y_pred = []
-        y_pred_proba = []
-        
+        val_loss = 0.0
+        correct = 0
+        total = 0
         with torch.no_grad():
-            for xb, yb in dataloaders["test"]:
-                xb = xb.to(device)
-                yb = yb.to(device)
+            for xb, yb in val_loader:
                 out = model(xb)
-                
-                # Get probabilities
-                proba = out.detach().cpu().numpy().ravel()
-                y_pred_proba.extend(proba.tolist())
-                
-                # Get binary predictions (threshold 0.5)
-                preds = (proba > 0.5).astype(int)
-                y_pred.extend(preds.tolist())
-                y_true.extend(yb.cpu().numpy().ravel().astype(int).tolist())
-        
-        # Compute metrics
-        accuracy = accuracy_score(y_true, y_pred)
-        f1 = f1_score(y_true, y_pred)
-        
-        print(f"\nTest Accuracy: {accuracy:.4f}")
-        print(f"Test F1-Score: {f1:.4f}\n")
-        
-        print("Classification Report:")
-        print(classification_report(y_true, y_pred, digits=4))
-        
-        print("\nConfusion Matrix:")
-        cm = confusion_matrix(y_true, y_pred)
-        print(cm)
-        print(f"\nTrue Negatives: {cm[0,0]} | False Positives: {cm[0,1]}")
-        print(f"False Negatives: {cm[1,0]} | True Positives: {cm[1,1]}")
-        
-        # Save evaluation results
-        results_path = os.path.abspath(os.path.join(out_dir, "eval_results_input2.txt"))
-        with open(results_path, 'w') as f:
-            f.write("ANFIS Training on BRFSS Diabetes Dataset (input2)\n")
-            f.write("="*60 + "\n\n")
-            f.write("TRAINING SUMMARY\n")
-            f.write("-"*60 + "\n")
-            f.write(f"Final training loss: {history.train_loss[-1]:.4f}\n")
-            f.write(f"Final validation loss: {history.val_loss[-1]:.4f}\n")
-            f.write(f"Final training accuracy: {history.train_accuracy[-1]:.2%}\n")
-            f.write(f"Final validation accuracy: {history.val_accuracy[-1]:.2%}\n\n")
-            
-            f.write("TEST SET EVALUATION\n")
-            f.write("-"*60 + "\n")
-            f.write(f"Test Accuracy: {accuracy:.4f}\n")
-            f.write(f"Test F1-Score: {f1:.4f}\n\n")
-            
-            f.write("Confusion Matrix:\n")
-            f.write(str(cm) + "\n")
-            f.write(f"True Negatives: {cm[0,0]} | False Positives: {cm[0,1]}\n")
-            f.write(f"False Negatives: {cm[1,0]} | True Positives: {cm[1,1]}\n\n")
-            
-            f.write(classification_report(y_true, y_pred, digits=4))
-        
-        print(f"\nResults saved to: {results_path}")
+                loss = loss_fn(out, yb)
+                val_loss += loss.item() * xb.size(0)
+                preds = (torch.sigmoid(out) > 0.5).float()
+                correct += (preds == yb).sum().item()
+                total += yb.size(0)
+
+        val_loss = val_loss / len(val_loader.dataset)
+        val_acc = correct / total
+
+        print(f"Epoch {epoch:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
+
+        if val_loss < best_val:
+            best_val = val_loss
+            best_state = model.state_dict().copy()
+
+    # Restore best state and evaluate on test set
+    if best_state is not None:
+        model.load_state_dict(best_state)
+
+    model.eval()
+    import numpy as np
+    y_true = []
+    y_pred = []
+    with torch.no_grad():
+        for xb, yb in test_loader:
+            out = model(xb)
+            probs = torch.sigmoid(out).cpu().numpy().ravel()
+            preds = (probs > 0.5).astype(int)
+            y_pred.extend(preds.tolist())
+            y_true.extend(yb.cpu().numpy().ravel().astype(int).tolist())
+
+    from sklearn.metrics import classification_report, confusion_matrix
+    print("\nTest set results:")
+    print(classification_report(y_true, y_pred, digits=4))
+    print("Confusion matrix:")
+    print(confusion_matrix(y_true, y_pred))
+
+    # Save model and scaler
+    out_dir = repo_root / 'output'
+    out_dir.mkdir(exist_ok=True)
+    model_path = out_dir / 'anfis_input2_gpu.pth'
+    torch.save({'model_state_dict': model.state_dict()}, str(model_path))
+    print(f"Saved model to: {model_path}")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
