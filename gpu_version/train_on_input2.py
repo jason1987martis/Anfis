@@ -141,7 +141,7 @@ def main():
     loss_fn = torch.nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    epochs = 20
+    epochs = 10
     best_val = float('inf')
     best_state = None
 
