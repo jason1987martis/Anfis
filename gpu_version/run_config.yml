@@ -1,0 +1,10 @@
+# Configuration for ANFIS Training
+seed: 42
+batch_size: 32
+learning_rate: 0.0001
+epochs: 100
+mf_count: 2
+patience: 10
+device_preference: "cuda" # or "cpu"
+input_dim: 4
+weight_decay: 1e-5
