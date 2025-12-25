@@ -69,21 +69,7 @@ Contributions are welcome! Please:
 3. Make your changes
 4. Submit a pull request
 
-## 📄 License
 
-This project is open source. See LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- Original ANFIS concept: Jang, J.S.R. (1993)
-- Kalman filter integration: Dr. Martis
-- Base implementation inspiration: [namalhappy/anfis_from_scratch_python](https://github.com/namalhappy/anfis_from_scratch_python)
-
-## 📧 Contact
-
-For questions, issues, or suggestions:
-- Open an issue on GitHub
-- Check the documentation in each folder's README
 
 ## 🔗 Useful Links
 
@@ -93,6 +79,4 @@ For questions, issues, or suggestions:
 - [PyTorch Documentation](https://pytorch.org/docs/)
 - [ANFIS Theory](https://en.wikipedia.org/wiki/Adaptive_neuro_fuzzy_inference_system)
 
----
 
-**Happy coding! 🚀**
