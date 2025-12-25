@@ -1,29 +1,31 @@
-# GPU ANFIS Toolkit
+# GPU Version
 
-This folder contains a PyTorch reimplementation of the custom ANFIS pipeline with GPU support and utilities tailored for the Diabetes Health Indicators (BRFSS) dataset.
+This directory contains the GPU-optimized training implementation for ANFIS.
 
-## Contents
-
-- `model.py` – differentiable ANFIS network with generalized bell membership functions, ready for CUDA.
-- `dataset_loader.py` – pandas/NumPy based loader for the BRFSS CSV export with normalization and train/val/test splits.
-- `trainer.py` – training loop with CLI entry point for rapid experiments.
-- `explainability.py` / `explainability.md` – layer-by-layer inspection helpers for explainable AI reporting.
-- `__init__.py` – convenience exports to treat the folder as a package.
-
-## Quickstart
-
-1. Download the Kaggle dataset locally (requires Kaggle authentication) and note the CSV path.
-2. Install dependencies (PyTorch, pandas, scikit-learn). Example:
+## Setup
+1. Ensure you have a CUDA-capable GPU and drivers installed.
+2. Install requirements:
    ```bash
-   pip install torch pandas scikit-learn
+   pip install -r requirements.txt
    ```
-3. Run the trainer (CUDA is used automatically if available):
-   ```bash
-   python -m gpu_version.trainer --data /path/to/diabetes_binary_health_indicators_BRFSS2015.csv --epochs 20 --batch-size 2048
-   ```
+   (Note: Ensure you install the CUDA version of PyTorch).
 
-The script reports train/validation losses and classification accuracy per epoch. The `train_anfis` helper may also be imported and used inside notebooks for more customized pipelines.
+## Usage
+Run the training wrapper using the provided batch file or Python script.
 
-## Explainability
+### Windows (Batch)
+```cmd
+run_gpu.bat --script train_anfis.py --seed 42
+```
 
-Import `ANFISExplainer` to grab per-layer tensors and top rule contributions for any prediction. See `explainability.md` for a walkthrough you can adapt for presentations or audit reports.
+### Python
+```bash
+python run_gpu.py --script train_anfis.py --seed 42
+```
+
+## Configuration
+Edit `run_config.yml` to change default hyperparameters, though note that some scripts may have hardcoded values.
+
+## Output
+- Logs are saved to `logs/`.
+- Models are saved to `models/` (if the script supports it) or `output/` (original script location).

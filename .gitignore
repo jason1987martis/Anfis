@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Project Outputs
+logs/
+models/
+gpu_version/logs/
+gpu_version/models/
+gpu_version/output/
+cpu_version/logs/
+cpu_version/models/
+cpu_version/output/
+comparison/comparison_report.html
+comparison/comparison_report.md
+comparison/comparison_duration.png
+
+# Datasets (Optional, usually ignored if large)
+# gpu_version/data/
+# cpu_version/data/
